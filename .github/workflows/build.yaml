@@ -104,7 +104,7 @@ jobs:
           pkgs=$(find ../extra/srcpkgs -maxdepth 1 -mindepth 1 -type d -printf "%f\n")
           
           if [ "$BOOTSTRAP" != "$ARCH" ]; then
-              arch="-a $2"
+              arch="-a $ARCH"
           fi
 
           if [ "$TEST" = 1 ]; then
