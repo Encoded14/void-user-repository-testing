@@ -43,17 +43,18 @@ jobs:
           useradd -G xbuilder -M builder
 
       - name: Checkout this repo
-        uses: classabbyamp/treeless-checkout-action@v1
-        with:
-          ref: master
-          path: extra
+        run: |
+          git clone --depth 1 "https://github.com/${{ github.repository }}.git" extra
+          cd extra
+          git fetch --no-tags origin "${{ github.sha }}" --depth 1
+          git checkout --detach "${{ github.sha }}"
 
       - name: Checkout void-packages
-        uses: classabbyamp/treeless-checkout-action@v1
-        with:
-          repository: void-linux/void-packages
-          ref: master
-          path: void-packages
+        run: |
+          git clone --depth 1 https://github.com/void-linux/void-packages.git void-packages
+          cd void-packages
+          git fetch --no-tags origin "${{ github.sha }}" --depth 1
+          git checkout --detach "${{ github.sha }}"
 
       - name: Merge templates and edit shlibs
         run: |
@@ -100,6 +101,7 @@ jobs:
       - name: Build
         run: |
           export PATH="/opt/xbps/usr/bin/:$PATH"
+          cd void-packages
           echo "==> templates found:"
           pkgs=$(find ../extra/srcpkgs -maxdepth 1 -mindepth 1 -type d -printf "%f\n")
           
