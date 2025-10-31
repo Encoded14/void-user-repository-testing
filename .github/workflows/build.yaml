@@ -8,40 +8,54 @@ on:
 
 jobs:
   build:
+    name: Build packages
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/void-linux/void-${{ matrix.config.libc }}-full:20250616R1
+      options: --platform ${{ matrix.config.platform }} --privileged
+      volumes:
+        - /dev:/dev
+      env:
+        ARCH: '${{ matrix.config.arch }}'
+        BOOTSTRAP: '${{ matrix.config.host }}'
+        TEST: '${{ matrix.config.test }}'
     strategy:
-      max-parallel: 4
+      fail-fast: false
       matrix:
-        include:
-          - { host: x86_64, target: x86_64 }
-          - { host: x86_64-musl, target: x86_64-musl }
-          - { host: x86_64, target: aarch64 }
-          - { host: x86_64-musl, target: aarch64-musl }
-    runs-on: ubuntu-22.04
+        config:
+          - { arch: x86_64,       host: x86_64,      libc: glibc, platform: linux/amd64, test: 1 }
+          - { arch: aarch64,      host: x86_64,      libc: glibc, platform: linux/amd64, test: 0 }
+          - { arch: x86_64-musl,  host: x86_64-musl, libc: musl,  platform: linux/amd64, test: 1 }
+          - { arch: aarch64-musl, host: x86_64-musl, libc: musl,  platform: linux/amd64, test: 0 }
+
     permissions:
       contents: write
 
     steps:
-      - name: free space
+      - name: Prepare container
         run: |
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /usr/local/lib/android
-          sudo rm -rf /opt/ghc
-          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          # switch to repo-ci mirror
+          mkdir -p /etc/xbps.d && cp /usr/share/xbps.d/*-repository-*.conf /etc/xbps.d/
+          sed -i 's|repo-default|repo-ci|g' /etc/xbps.d/*-repository-*.conf
+          # install dependencies
+          xbps-install -Syu xbps && xbps-install -yu && xbps-install -y sudo bash curl git
+          # create non-root user
+          useradd -G xbuilder -M builder
 
-      - name: checkout this repo
+      - name: Checkout this repo
         uses: actions/checkout@v4
         with:
           ref: master
           path: extra
 
-      - name: checkout void-packages
+      - name: Checkout void-packages
         uses: actions/checkout@v4
         with:
           repository: void-linux/void-packages
           ref: master
           path: void-packages
 
-      - name: merge templates and edit shlibs
+      - name: Merge templates and edit shlibs
         run: |
           echo "==> copying templates..."
           cp -rv extra/srcpkgs/* void-packages/srcpkgs/
@@ -74,53 +88,37 @@ jobs:
               echo "   - removing void-packages/srcpkgs/hyprutils/patches"
               rm -rf void-packages/srcpkgs/hyprutils/patches
           fi
-      
-      - name: prepare xbps-static
-        run: |
-          mkdir -p /opt/xbps
-          curl -LO http://repo-default.voidlinux.org/static/xbps-static-latest.x86_64-musl.tar.xz
-          tar xvf xbps-static-latest.x86_64-musl.tar.xz -C /opt/xbps
-          rm xbps-static-latest.x86_64-musl.tar.xz
 
-      - name: build
-        env:
-          XBPS_TARGET_ARCH: ${{ matrix.target }}
+      - name: Prepare masterdir
+        run: |
+          cd void-packages
+          chown -R builder:builder . &&
+          sudo -Eu builder common/travis/set_mirror.sh &&
+          sudo -Eu builder common/travis/prepare.sh &&
+          common/travis/fetch-xtools.sh
+
+      - name: Build
         run: |
           export PATH="/opt/xbps/usr/bin/:$PATH"
           echo "==> templates found:"
-          find void-packages/srcpkgs -maxdepth 1 -mindepth 1 -type d
-          cd void-packages
-
-          if [[ "${{ matrix.host }}" == "${{ matrix.target }}" ]]; then
-            ./xbps-src -A ${{ matrix.host }} binary-bootstrap
-          else
-            ./xbps-src -a ${{ matrix.target }} -A ${{ matrix.host }} binary-bootstrap
-          fi
-
-          if [[ "${{ matrix.target }}" == aarch64* ]]; then
-            echo "==> bootstrapping cross toolchain for ${{ matrix.target }}"
-            ./xbps-src -A ${{ matrix.host }} pkg cross-vpkg-dummy
-            ./xbps-src -A ${{ matrix.host }} pkg cross-aarch64-linux-gnu
-          fi
-
           pkgs=$(find ../extra/srcpkgs -maxdepth 1 -mindepth 1 -type d -printf "%f\n")
-          echo "==> sorting dependencies..."
-          sorted=$(./xbps-src sort-dependencies $pkgs)
-          echo "==> build order:"
-          printf '%s\n' $sorted
+          
+          if [ "$BOOTSTRAP" != "$ARCH" ]; then
+              arch="-a $2"
+          fi
 
-          failed=()
+          if [ "$TEST" = 1 ]; then
+              test="-Q"
+          fi
 
-          for pkg in $sorted; do
-            echo "==> building $pkg"
-            if [[ "${{ matrix.host }}" == "${{ matrix.target }}" ]]; then
-              ./xbps-src pkg -j$(nproc) -A ${{ matrix.host }} "$pkg" || failed+=("$pkg")
-            else
-              ./xbps-src pkg -j$(nproc) -a ${{ matrix.target }} -A ${{ matrix.host }} "$pkg" || failed+=("$pkg")
-            fi
+          PKGS=$(./xbps-src $test sort-dependencies $pkgs)
+
+          for pkg in ${PKGS}; do
+              ./xbps-src -j$(nproc) -s $arch $test pkg "$pkg"
+              [ $? -eq 1 ] && exit 1
           done
 
-      - name: sign
+      - name: Sign
         env:
           PRIV_KEY: ${{ secrets.PRIV_KEY }}
           XBPS_ARCH: ${{ matrix.target }}
@@ -146,7 +144,7 @@ jobs:
           echo "==> cleaning up private key..."
           rm -f private.pem
 
-      - name: upload build artifacts
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: binpkgs-${{ matrix.target }}
@@ -161,12 +159,12 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: download all build artifacts
+      - name: Download all build artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
 
-      - name: set release tag
+      - name: Set release tag
         run: echo "TAG=build-$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_ENV
 
       - name: Create GitHub release
