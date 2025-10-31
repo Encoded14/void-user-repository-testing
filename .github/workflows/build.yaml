@@ -44,11 +44,16 @@ jobs:
 
       - name: Checkout this repo
         uses: classabbyamp/treeless-checkout-action@v1
+        with:
+          ref: master
+          path: extra
 
       - name: Checkout void-packages
         uses: classabbyamp/treeless-checkout-action@v1
         with:
           repository: void-linux/void-packages
+          ref: master
+          path: void-packages
 
       - name: Merge templates and edit shlibs
         run: |
