@@ -43,17 +43,12 @@ jobs:
           useradd -G xbuilder -M builder
 
       - name: Checkout this repo
-        uses: actions/checkout@v4
-        with:
-          ref: master
-          path: extra
+        uses: classabbyamp/treeless-checkout-action@v1
 
       - name: Checkout void-packages
-        uses: actions/checkout@v4
+        uses: classabbyamp/treeless-checkout-action@v1
         with:
           repository: void-linux/void-packages
-          ref: master
-          path: void-packages
 
       - name: Merge templates and edit shlibs
         run: |
