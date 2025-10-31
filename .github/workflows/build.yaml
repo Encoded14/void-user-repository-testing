@@ -101,7 +101,6 @@ jobs:
         run: |
           export PATH="/opt/xbps/usr/bin/:$PATH"
           cd void-packages
-          echo "==> templates found:"
           pkgs=$(find ../extra/srcpkgs -maxdepth 1 -mindepth 1 -type d -printf "%f\n")
           
           if [ "$BOOTSTRAP" != "$ARCH" ]; then
@@ -112,10 +111,10 @@ jobs:
               test="-Q"
           fi
 
-          PKGS=$(./xbps-src $test sort-dependencies $pkgs)
+          PKGS=$(sudo -Eu builder ./xbps-src $test sort-dependencies $pkgs)
 
           for pkg in ${PKGS}; do
-              ./xbps-src -j$(nproc) -s $arch $test pkg "$pkg"
+              sudo -Eu builder ./xbps-src -j$(nproc) -s $arch $test pkg "$pkg"
               [ $? -eq 1 ] && exit 1
           done
 
