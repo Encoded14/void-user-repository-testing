@@ -155,36 +155,9 @@ jobs:
           echo "==> cleaning up private key..."
           rm -f private.pem
 
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+      - name: Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: binpkgs-${{ matrix.config.arch }}
-          path: |
+          files: |
             void-packages/hostdir/binpkgs/*.xbps*
             void-packages/hostdir/binpkgs/*repodata*
-          retention-days: 3
-
-  release:
-    needs: build
-    runs-on: ubuntu-22.04
-    permissions:
-      contents: write
-    steps:
-      - name: Download all build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: Set release tag
-        run: echo "TAG=build-$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_ENV
-
-      - name: Create GitHub release
-        uses: softprops/action-gh-release@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ env.TAG }}
-          name: ${{ env.TAG }}
-          files: artifacts/**/*
-          overwrite_files: true
-          fail_on_unmatched_files: false
