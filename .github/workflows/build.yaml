@@ -158,7 +158,7 @@ jobs:
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: binpkgs-${{ matrix.target }}
+          name: binpkgs-${{ matrix.arch }}
           path: |
             void-packages/hostdir/binpkgs/*.xbps*
             void-packages/hostdir/binpkgs/*repodata*
