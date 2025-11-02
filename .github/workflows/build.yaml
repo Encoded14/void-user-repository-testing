@@ -169,8 +169,6 @@ jobs:
             ACCESS_GIT: ${{ secrets.PRIV_KEY }}
             RESULT_NAME: ${{ matrix.config.arch }}
         run: |
-          set -euo pipefail
-
           cd extra
           git config user.name \"github-actions[bot]\"
           git config user.email \"github-actions[bot]@users.noreply.github.com\"
