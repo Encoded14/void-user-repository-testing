@@ -112,11 +112,22 @@ jobs:
           fi
 
           PKGS=$(sudo -Eu builder ./xbps-src $test sort-dependencies $pkgs)
+          failed=""
 
           for pkg in ${PKGS}; do
-              sudo -Eu builder ./xbps-src -j$(nproc) -s $arch $test pkg "$pkg"
-              [ $? -eq 1 ] && exit 1
+            if ! sudo -Eu builder ./xbps-src -j"$(nproc)" -s $arch $test pkg "${pkg}"; then
+              echo "!! build failed for ${pkg}"
+              failed="${failed} ${pkg}"
+            fi
           done
+
+          if [ -n "${failed}" ]; then
+            echo
+            echo "These packages failed:"
+            for f in ${failed}; do
+                echo "  - ${f}"
+            done
+          fi
 
       - name: Sign
         env:
