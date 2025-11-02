@@ -2,9 +2,12 @@ name: build
 
 on:
   push:
-    tags:
-      - '*'
+    branches:
+        - master
+    paths:
+        - 'srcpkgs/**'
   workflow_dispatch:
+
 
 jobs:
   build:
@@ -155,9 +158,29 @@ jobs:
           echo "==> cleaning up private key..."
           rm -f private.pem
 
-      - name: Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            void-packages/hostdir/binpkgs/*.xbps*
-            void-packages/hostdir/binpkgs/*repodata*
+      - name: Set release tag
+        id: set_tag
+        run: echo "tag=build-$(date +'%Y%m%d-%H%M%S')" >> "$GITHUB_OUTPUT"
+
+      - name: Push binpkgs branch (per arch)
+        env:
+            REPO_OWNER: ${{ github.repository_owner }}
+            REPO_NAME: ${{ github.event.repository.name }}
+            ACCESS_GIT: ${{ secrets.PRIV_KEY }}
+            RESULT_NAME: ${{ matrix.config.arch }}
+        run: |
+          set -euo pipefail
+
+          cd extra
+          git config user.name \"github-actions[bot]\"
+          git config user.email \"github-actions[bot]@users.noreply.github.com\"
+
+          # Delete old binary repository, create new one
+          git push https://$REPO_OWNER:$ACCESS_GIT@github.com/$REPO_OWNER/$REPO_NAME.git -d repository-$RESULT_NAME || true
+          git switch --orphan repository-$RESULT_NAME
+
+          # Populate and push new binary repository
+          cp ../void-packages/hostdir/binpkgs/* ./
+          git add .
+          git commit -m \"Upload latest packages to repository\"
+          git push -f https://$REPO_OWNER:$ACCESS_GIT@github.com/$REPO_OWNER/$REPO_NAME.git repository-$RESULT_NAME
