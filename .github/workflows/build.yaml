@@ -169,20 +169,19 @@ jobs:
             ACCESS_GIT: ${{ secrets.ACCESS_GIT }}
             RESULT_NAME: ${{ matrix.config.arch }}
         run: |
-          COMMAND="
-            cd extra
-            git config user.name \"github-actions[bot]\"
-            git config user.email \"github-actions[bot]@users.noreply.github.com\"
+          cd extra
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
-            # Delete old binary repository, create new one
-            git push https://$REPO_OWNER:$ACCESS_GIT@github.com/$REPO_OWNER/$REPO_NAME.git -d repository-$RESULT_NAME || true
-            git switch --orphan repository-$RESULT_NAME
+          BRANCH="repository-${RESULT_NAME}"
+          REMOTE="https://$REPO_OWNER:${ACCESS_GIT}@github.com/${REPO_OWNER}/${REPO_NAME}.git"
 
-            # Populate and push new binary repository
-            cp ../void-packages/hostdir/binpkgs/* ./
-            git add .
-            git commit -m \"Upload latest packages to repository\"
-            git push -f https://$REPO_OWNER:$ACCESS_GIT@github.com/$REPO_OWNER/$REPO_NAME.git repository-$RESULT_NAME
-          "
+          # Delete old binary repository, create new one
+          git push "$REMOTE" -d "$BRANCH" || true
+          git switch --orphan "$BRANCH"
 
-          sudo -Eu builder sh -c "$COMMAND"
+          # Populate and push new binary repository
+          cp ../void-packages/hostdir/binpkgs/* ./
+          git add .
+          git commit -m "Upload latest packages to repository"
+          git push -f "$REMOTE" "$BRANCH"
