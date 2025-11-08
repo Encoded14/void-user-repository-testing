@@ -238,7 +238,8 @@ jobs:
 
           # get existing branch if it exists
           if git ls-remote --exit-code --heads "$REMOTE" "$BRANCH" >/dev/null 2>&1; then
-              git fetch "$REMOTE" "$BRANCH"
+              # fetch remote branch and create/update local branch with the same name
+              git fetch "$REMOTE" "$BRANCH:$BRANCH"
               git checkout "$BRANCH"
           else
               git checkout --orphan "$BRANCH"
