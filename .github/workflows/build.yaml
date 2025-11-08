@@ -49,6 +49,10 @@ jobs:
         run: |
           git clone --depth 1 "https://github.com/${{ github.repository }}.git" extra
           cd extra
+          # we need the previous revision to diff against
+          if [ -n "${{ github.event.before }}" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+              git fetch --no-tags origin "${{ github.event.before }}" --depth 1 || true
+          fi
           git fetch --no-tags origin "${{ github.sha }}" --depth 1
           git checkout --detach "${{ github.sha }}"
 
