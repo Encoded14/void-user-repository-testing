@@ -99,16 +99,7 @@ jobs:
       - name: Merge templates and edit shlibs
         run: |
           echo "==> copying templates..."
-          changed="${{ steps.changed.outputs.pkgs }}"
-
-          echo "==> copying templates..."
-          if [ -z "$changed" ]; then
-              echo "No changed templates to copy."
-          else
-              for pkg in $changed; do
-                  cp -rv "extra/srcpkgs/$pkg" "void-packages/srcpkgs/"
-              done
-          fi
+          cp -rv extra/srcpkgs/* void-packages/srcpkgs/
 
           SHLIBS_FILE="void-packages/common/shlibs"
           APPEND_FILE="extra/shlibs_append"
